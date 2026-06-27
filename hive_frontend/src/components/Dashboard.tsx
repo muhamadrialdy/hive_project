@@ -1,32 +1,44 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Settings, Database, Activity, MessageSquare, Menu, BookOpen } from 'lucide-react';
+import { LogOut, Settings, Database, Activity, MessageSquare, Menu, BookOpen, Users } from 'lucide-react';
 import HdiLogo from './HdiLogo';
 import AdminWidget from './widgets/AdminWidget';
 import DataWidget from './widgets/DataWidget';
 import MLWidget from './widgets/MLWidget';
 import ChatWidget from './widgets/ChatWidget';
 import DocsWidget from './widgets/DocsWidget';
+import UsersWidget from './widgets/UsersWidget';
 
-const NAV_ITEMS = [
+interface NavItem { id: string; icon: React.ElementType; label: string; superAdminOnly?: boolean }
+
+const NAV_ITEMS: NavItem[] = [
   { id: 'data',  icon: Database,      label: 'Data Management' },
   { id: 'ml',    icon: Activity,      label: 'MLOps & Tuning'  },
   { id: 'chat',  icon: MessageSquare, label: 'Gemini Agent'    },
   { id: 'docs',  icon: BookOpen,      label: 'Documentation'   },
+  { id: 'users', icon: Users,         label: 'Users',           superAdminOnly: true },
 ];
 
 const Dashboard: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, user, isSuperAdmin } = useAuth();
   const [activeTab, setActiveTab]     = useState('data');
   const [collapsed, setCollapsed]     = useState(false);
 
+  // Hide super-admin-only entries (Users widget + Settings & API) from regular users.
+  const visibleNavItems = NAV_ITEMS.filter(n => !n.superAdminOnly || isSuperAdmin);
+
   const renderWidget = () => {
+    // Guard: regular users can't reach super-admin widgets even via URL state.
+    if ((activeTab === 'admin' || activeTab === 'users') && !isSuperAdmin) {
+      return <DataWidget />;
+    }
     switch (activeTab) {
       case 'admin': return <AdminWidget />;
       case 'data':  return <DataWidget />;
       case 'ml':    return <MLWidget />;
       case 'chat':  return <ChatWidget />;
       case 'docs':  return <DocsWidget />;
+      case 'users': return <UsersWidget />;
       default:      return <DataWidget />;
     }
   };
@@ -96,7 +108,7 @@ const Dashboard: React.FC = () => {
 
         {/* Nav */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
-          {NAV_ITEMS.map(({ id, icon: Icon, label }) => (
+          {visibleNavItems.map(({ id, icon: Icon, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -109,20 +121,41 @@ const Dashboard: React.FC = () => {
             </button>
           ))}
 
-          <div style={{ margin: '0.75rem 0', height: '1px', background: 'var(--border-glass)' }} />
-
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`glass-button ${activeTab !== 'admin' ? 'secondary' : ''}`}
-            style={btnStyle}
-            title={collapsed ? 'Settings & API' : undefined}
-          >
-            <Settings size={18} style={{ flexShrink: 0 }} />
-            {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>Settings & API</span>}
-          </button>
+          {isSuperAdmin && (
+            <>
+              <div style={{ margin: '0.75rem 0', height: '1px', background: 'var(--border-glass)' }} />
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`glass-button ${activeTab !== 'admin' ? 'secondary' : ''}`}
+                style={btnStyle}
+                title={collapsed ? 'Settings & API' : undefined}
+              >
+                <Settings size={18} style={{ flexShrink: 0 }} />
+                {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>Settings & API</span>}
+              </button>
+            </>
+          )}
         </nav>
 
-        {/* Logout */}
+        {/* User badge + Logout */}
+        {!collapsed && user && (
+          <div style={{
+            marginBottom: '0.5rem', padding: '0.5rem 0.65rem',
+            background: 'rgba(255,255,255,0.04)', borderRadius: '8px',
+            fontSize: '0.72rem', color: 'var(--text-muted)',
+            display: 'flex', flexDirection: 'column', gap: '2px',
+          }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+            <span style={{
+              alignSelf: 'flex-start', fontSize: '0.65rem',
+              padding: '1px 6px', borderRadius: '8px',
+              background: isSuperAdmin ? 'rgba(232,49,42,0.2)' : 'rgba(148,163,184,0.15)',
+              color: isSuperAdmin ? 'var(--primary)' : 'var(--text-muted)',
+            }}>
+              {user.role}
+            </span>
+          </div>
+        )}
         <button
           onClick={logout}
           className="glass-button secondary"

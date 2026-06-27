@@ -1,10 +1,17 @@
+import os
+# Force a local SQLite path before any app import, so the engine in
+# app.db.session doesn't try to open the production / Docker path that may be
+# set in .env.
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.main import app
 from app.db.session import Base, get_db
-from app.models.db_models import Config
+from app.models.db_models import Config, User
+from app.core.security import get_current_user
 
 # Setup a test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -20,7 +27,12 @@ def override_get_db():
     finally:
         db.close()
 
+def override_get_current_user():
+    # Bypass JWT auth in tests with a stub user
+    return User(id=1, email="test@example.com", hashed_password="x")
+
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_current_user] = override_get_current_user
 client = TestClient(app)
 
 @pytest.fixture(autouse=True)

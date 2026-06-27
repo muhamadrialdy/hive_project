@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Key, Save, AlertCircle } from 'lucide-react';
+import { API_URL } from '../../config';
 
 const AdminWidget: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
@@ -14,7 +15,7 @@ const AdminWidget: React.FC = () => {
 
   const fetchConfig = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8088/api/admin/config');
+      const res = await axios.get(`${API_URL}/admin/config`);
       setApiKey(res.data.api_key || '');
       setModel(res.data.model || 'gemini-3.0-flash');
     } catch (err) {
@@ -26,7 +27,7 @@ const AdminWidget: React.FC = () => {
     setStatus(null);
     setIsLoading(true);
     try {
-      await axios.post('http://127.0.0.1:8088/api/admin/config', { api_key: apiKey, model });
+      await axios.post(`${API_URL}/admin/config`, { api_key: apiKey, model });
       setStatus({ type: 'success', msg: 'Configuration saved successfully!' });
     } catch (err) {
       setStatus({ type: 'error', msg: 'Failed to save configuration.' });

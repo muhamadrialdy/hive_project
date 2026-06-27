@@ -1,17 +1,22 @@
 import pandas as pd
 import numpy as np
 import datetime
+import logging
+
 from sklearn.ensemble import RandomForestRegressor
 from .data_pipeline import load_and_clean_data
+from app.services.cache import ttl_cache
+
+log = logging.getLogger(__name__)
 
 
+@ttl_cache(key_prefix="forecast:enterprisers", ttl_seconds=3600)
 def get_forecast(days: int = 7) -> dict:
     """Forecasts new_enterpriser_count for the next `days` days.
 
-    Uses an enhanced Random Forest with 10 features:
-    autoregressive lags (1, 3, 7, 14), rolling momentum (mean_7, std_7),
-    and calendar encoding (dow, is_weekend, month). Predictions are generated
-    iteratively so each day's output feeds into the next day's lag features.
+    Loads the active model artifact set via /api/ml; falls back to the backup,
+    then to an on-the-fly train if neither is available. Iterative prediction:
+    each day's output feeds the next day's lag features.
     """
     df = load_and_clean_data()
     df = df.set_index('date').resample('D').ffill()
@@ -40,8 +45,19 @@ def get_forecast(days: int = 7) -> dict:
     ]
     target = 'new_enterpriser_count'
 
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
-    model.fit(df_ml[features], df_ml[target])
+    # Try to serve from a stored artifact; if none available, train on demand.
+    model: RandomForestRegressor
+    model_source = "inline"
+    model_version: int | None = None
+    warning: str | None = None
+    try:
+        from app.api.endpoints.ml import load_serving_model
+        model, model_version, warning = load_serving_model()
+        model_source = f"v{model_version}"
+    except Exception as e:
+        log.info("No stored artifact available (%s); training on demand", e)
+        model = RandomForestRegressor(n_estimators=200, random_state=42)
+        model.fit(df_ml[features], df_ml[target])
 
     last_date   = df_ml.index.max()
     fcast_dates = [last_date + datetime.timedelta(days=i) for i in range(1, days + 1)]
@@ -74,6 +90,9 @@ def get_forecast(days: int = 7) -> dict:
     return {
         "dates": dates,
         "forecasted_new_enterprisers": values,
+        "model_source": model_source,
+        "model_version": model_version,
+        "warning": warning,
     }
 
 

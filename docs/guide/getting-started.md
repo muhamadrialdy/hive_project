@@ -13,12 +13,17 @@ HIVE is a three-tier system: a FastAPI backend, a React + Vite frontend, and an 
 ```bash
 cd hive_project
 uv sync
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8088 --reload
+cp .env.example .env       # edit HOST/PORT/CORS if needed
+uv run python main.py      # reads .env, launches uvicorn with reload
 ```
 
-The server starts on `http://127.0.0.1:8088`. FastAPI's auto-generated OpenAPI explorer is available at `http://127.0.0.1:8088/docs`.
+Defaults to `http://127.0.0.1:8088`. The OpenAPI explorer is at `/docs`.
 
 The first run creates `hive.db` (SQLite) in the project root and ensures the `users`, `config`, `chat_sessions`, and `chat_messages` tables exist.
+
+::: tip Configurable bind
+`HOST`, `PORT`, and `CORS_ORIGINS` are read from `.env` via [app/core/config.py](https://github.com/muhamadrialdy/hive_project/blob/main/app/core/config.py). `CORS_ORIGINS` is a comma-separated list (use `*` to allow any origin — development only).
+:::
 
 ## Frontend
 
@@ -27,10 +32,11 @@ In a second terminal:
 ```bash
 cd hive_project/hive_frontend
 npm install
+cp .env.example .env       # only if you changed the backend URL
 npm run dev
 ```
 
-The dev server runs on `http://localhost:5173` and talks to the backend at the hardcoded URL `http://127.0.0.1:8088`.
+The dev server runs on `http://localhost:VITE_PORT` (default `5173`) and calls the backend at `VITE_API_URL` (default `http://127.0.0.1:8088/api`). Both are configurable via `hive_frontend/.env`. If you change `VITE_PORT`, add the new origin to `CORS_ORIGINS` in the backend `.env`.
 
 Open `http://localhost:5173` and log in with `admin.hive@gmail.com`. The password you type on the first attempt becomes the permanent password — there is no separate signup flow.
 

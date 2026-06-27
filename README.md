@@ -28,6 +28,7 @@ hive_project/
 │   ├── services/
 │   │   ├── data_pipeline.py      CSV load, clean, summary stats
 │   │   ├── forecasting.py        Random Forest 7-day forecast
+│   │   ├── cache.py              Redis TTL cache with graceful no-Redis fallback
 │   │   └── llm_agent.py          Gemini chat with chart attachments
 │   ├── models/
 │   │   ├── db_models.py          User, Config, ChatSession, ChatMessage
@@ -46,41 +47,78 @@ hive_project/
 └── pyproject.toml                uv-managed Python dependencies
 ```
 
-Architecture diagrams and component-level detail live in [ARCHITECTURE.md](ARCHITECTURE.md). The full endpoint reference is in [API.md](API.md).
+Architecture diagrams and component-level detail live in [ARCHITECTURE.md](ARCHITECTURE.md). The full endpoint reference is in [API.md](API.md). A full version history is in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## Getting started
 
-### Prerequisites
+### Option A — Docker (recommended)
+
+Everything runs in containers, no local Python/Node required:
+
+```bash
+git clone git@github.com:muhamadrialdy/hive_project.git
+cd hive_project
+cp .env.example .env
+
+# Generate a strong SECRET_KEY and paste into .env
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
+
+docker compose up -d --build
+```
+
+- Frontend: http://localhost
+- Backend (proxied via nginx): http://localhost/api/
+- Redis: internal, no host port exposed
+
+Tail logs with `docker compose logs -f backend` (or `frontend`, `redis`). Stop with `docker compose down` (`-v` also wipes volumes).
+
+The Gemini API key is set in-app via **Settings & API** — no need to put it in `.env` unless you want a bootstrap default.
+
+### Option B — Local dev (no Docker)
+
+Useful for fast iteration with hot reload.
+
+#### Prerequisites
 
 - Python 3.12+ with [`uv`](https://github.com/astral-sh/uv) installed
 - Node.js 20+
 - Optional: a Gemini API key for the chat agent
 
-### Backend
+#### Backend
 
 ```bash
 cd hive_project
 uv sync
+cp .env.example .env       # then edit if you want to change HOST/PORT/CORS
+uv run python main.py      # reads HOST/PORT from .env and launches uvicorn with reload
+```
+
+Defaults to `http://127.0.0.1:8088`. FastAPI's auto-generated OpenAPI explorer is at `/docs`.
+
+If you'd rather run uvicorn directly, that still works — just pass the host/port explicitly:
+
+```bash
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8088 --reload
 ```
 
-The server starts on `http://127.0.0.1:8088`. FastAPI's auto-generated OpenAPI explorer is available at `http://127.0.0.1:8088/docs`.
-
-### Frontend
+#### Frontend
 
 In a second terminal:
 
 ```bash
 cd hive_project/hive_frontend
 npm install
+cp .env.example .env       # only if you changed the backend URL/port
 npm run dev
 ```
 
-The dev server runs on `http://localhost:5173` and talks to the backend at the hardcoded URL `http://127.0.0.1:8088`. Open the dashboard and log in with `admin.hive@gmail.com` — the password you submit on the first attempt becomes permanent.
+The dev server runs on `http://localhost:VITE_PORT` (default `5173`) and calls the backend at `VITE_API_URL` (default `http://127.0.0.1:8088/api`). Both are configurable via [hive_frontend/.env](hive_frontend/.env.example). If you change `VITE_PORT`, remember to add the new origin to `CORS_ORIGINS` in the backend `.env`.
 
-### Gemini API key
+Open the dashboard and log in with `admin.hive@gmail.com` — the password you submit on the first attempt becomes permanent.
+
+#### Gemini API key
 
 The chat agent stays disabled until a key is configured. Two options:
 

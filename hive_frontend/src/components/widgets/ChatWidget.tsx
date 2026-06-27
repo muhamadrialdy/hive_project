@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import axios from 'axios';
 import { Send, User, Bot, Loader2, PlusCircle, MessageSquare, Trash2 } from 'lucide-react';
+import { API_URL } from '../../config';
 
 interface ChatMessage {
   role: 'user' | 'agent';
@@ -42,12 +43,18 @@ const MessageContent = React.memo(({ msg }: { msg: ChatMessage }) => {
   return <div ref={containerRef} dangerouslySetInnerHTML={{ __html: msg.role === 'user' ? msg.content.replace(/\n/g, '<br/>') : msg.content }} />;
 });
 
+const draftKey = (sessionId: number) => `hive_chat_draft_${sessionId}`;
+
 const ChatWidget: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Pending draft: a user question that was sent but never confirmed (client
+  // crashed / lost connection before the agent reply was rendered). Persisted
+  // to localStorage so it survives reload.
+  const [pendingDraft, setPendingDraft] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,7 +75,7 @@ const ChatWidget: React.FC = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8088/api/chat/sessions');
+      const res = await axios.get(`${API_URL}/chat/sessions`);
       setSessions(res.data);
       if (res.data.length > 0 && !activeSessionId) {
         setActiveSessionId(res.data[0].id);
@@ -80,17 +87,76 @@ const ChatWidget: React.FC = () => {
 
   const fetchSessionHistory = async (id: number) => {
     try {
-      const res = await axios.get(`http://127.0.0.1:8088/api/chat/sessions/${id}`);
-      setMessages(res.data.messages);
+      const res = await axios.get(`${API_URL}/chat/sessions/${id}`);
+      const msgs: ChatMessage[] = res.data.messages ?? [];
+      setMessages(msgs);
+
+      // Reconcile localStorage draft against actual history.
+      // Cases:
+      //   - draft matches last user msg AND there's a later agent reply  → answered, drop draft
+      //   - draft matches last user msg AND no later agent reply         → still in-flight or failed, keep draft (Resend)
+      //   - draft is unrelated to last msg                                → backend never received it, keep draft
+      //   - no draft                                                      → nothing to do
+      const stored = localStorage.getItem(draftKey(id));
+      if (!stored) {
+        setPendingDraft(null);
+        return;
+      }
+      const lastUserIdx = (() => {
+        for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === 'user') return i;
+        return -1;
+      })();
+      const hasAgentReplyAfter = lastUserIdx !== -1
+        && msgs[lastUserIdx].content === stored
+        && msgs.slice(lastUserIdx + 1).some(m => m.role === 'agent');
+      if (hasAgentReplyAfter) {
+        localStorage.removeItem(draftKey(id));
+        setPendingDraft(null);
+      } else {
+        setPendingDraft(stored);
+      }
     } catch (err) {
       console.error("Failed to load history", err);
+    }
+  };
+
+  const resendDraft = async () => {
+    if (!pendingDraft || !activeSessionId) return;
+    const text = pendingDraft;
+    setPendingDraft(null);
+    setInput(text);
+    // Re-issue using the same path as a normal send
+    await sendMessageWithText(text);
+  };
+
+  const dismissDraft = () => {
+    if (activeSessionId) localStorage.removeItem(draftKey(activeSessionId));
+    setPendingDraft(null);
+  };
+
+  const sendMessageWithText = async (userMsg: string) => {
+    if (!userMsg.trim() || !activeSessionId) return;
+    localStorage.setItem(draftKey(activeSessionId), userMsg);
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setInput('');
+    setIsLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/chat/sessions/${activeSessionId}/ask`, { question: userMsg });
+      setMessages(prev => [...prev, { role: 'agent', content: res.data.response }]);
+      localStorage.removeItem(draftKey(activeSessionId));
+      setPendingDraft(null);
+    } catch (err: any) {
+      // Leave the draft in localStorage so the user can resend after reload.
+      setMessages(prev => [...prev, { role: 'agent', content: `Error: ${err.message}` }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const createNewSession = async () => {
     try {
       const title = `Session ${new Date().toLocaleString()}`;
-      const res = await axios.post('http://127.0.0.1:8088/api/chat/sessions', { title });
+      const res = await axios.post(`${API_URL}/chat/sessions`, { title });
       setSessions([res.data, ...sessions]);
       setActiveSessionId(res.data.id);
     } catch (err) {
@@ -101,7 +167,7 @@ const ChatWidget: React.FC = () => {
   const deleteSession = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await axios.delete(`http://127.0.0.1:8088/api/chat/sessions/${id}`);
+      await axios.delete(`${API_URL}/chat/sessions/${id}`);
       setSessions(sessions.filter(s => s.id !== id));
       if (activeSessionId === id) {
         setActiveSessionId(sessions.find(s => s.id !== id)?.id || null);
@@ -113,21 +179,7 @@ const ChatWidget: React.FC = () => {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !activeSessionId) return;
-
-    const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const res = await axios.post(`http://127.0.0.1:8088/api/chat/sessions/${activeSessionId}/ask`, { question: userMsg });
-      setMessages(prev => [...prev, { role: 'agent', content: res.data.response }]);
-    } catch (err: any) {
-      setMessages(prev => [...prev, { role: 'agent', content: `Error: ${err.message}` }]);
-    } finally {
-      setIsLoading(false);
-    }
+    await sendMessageWithText(input);
   };
 
   return (
@@ -225,6 +277,23 @@ const ChatWidget: React.FC = () => {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Pending draft recovery banner */}
+          {pendingDraft && !isLoading && (
+            <div style={{
+              padding: '0.6rem 1rem',
+              borderTop: '1px solid var(--border-glass)',
+              background: 'rgba(245, 158, 11, 0.12)',
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              fontSize: '0.85rem',
+            }}>
+              <span style={{ flex: 1, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Unsent: "{pendingDraft.slice(0, 80)}{pendingDraft.length > 80 ? '…' : ''}"
+              </span>
+              <button onClick={resendDraft} className="glass-button" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>Resend</button>
+              <button onClick={dismissDraft} className="glass-button secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>Dismiss</button>
+            </div>
+          )}
 
           {/* Input Area */}
           <div style={{ padding: '1rem', borderTop: '1px solid var(--border-glass)' }}>

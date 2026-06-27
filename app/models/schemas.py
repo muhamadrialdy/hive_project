@@ -11,6 +11,9 @@ class DailySummary(BaseModel):
 class ForecastResult(BaseModel):
     dates: List[str]
     forecasted_new_enterprisers: List[float]
+    model_source: Optional[str] = None
+    model_version: Optional[int] = None
+    warning: Optional[str] = None
 
 class ChatRequest(BaseModel):
     question: str

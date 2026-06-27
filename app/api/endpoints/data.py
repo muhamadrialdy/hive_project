@@ -2,10 +2,17 @@ import math
 from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app.services.data_pipeline import load_and_clean_data, get_daily_summary, DATA_PATH
+from app.services.data_pipeline import (
+    load_and_clean_data,
+    get_daily_summary,
+    DATA_PATH,
+    has_data,
+    save_uploaded_csv,
+)
+from app.services.cache import invalidate as cache_invalidate
 
 router = APIRouter()
 
@@ -37,13 +44,23 @@ class IngestRow(BaseModel):
     top_product_id: Optional[str] = None
 
 
+@router.get("/status")
+def data_status():
+    """Cheap probe — does any CSV exist? Used by the frontend to render an empty state."""
+    return {"has_data": has_data()}
+
+
 @router.get("/summary")
 def summary():
+    if not has_data():
+        raise HTTPException(404, "No dataset yet. Upload one via /api/data/upload.")
     return get_daily_summary()
 
 
 @router.get("/table")
 def get_table(limit: int = 50, offset: int = 0):
+    if not has_data():
+        return {"total": 0, "offset": offset, "limit": limit, "records": []}
     df = load_and_clean_data()
     df = df.sort_values("date", ascending=False)
     total = len(df)
@@ -53,6 +70,8 @@ def get_table(limit: int = 50, offset: int = 0):
 
 @router.get("/recent")
 def get_recent():
+    if not has_data():
+        return []
     df = load_and_clean_data()
     df = df.sort_values("date", ascending=False).head(10)
     return _serialize(df.to_dict(orient="records"))
@@ -60,6 +79,12 @@ def get_recent():
 
 @router.get("/chart")
 def get_chart_data(days: int = 90):
+    if not has_data():
+        return {
+            "dates": [], "new_enterpriser_count": [], "new_bee_count": [],
+            "transaction_volume_online": [], "transaction_volume_offline": [],
+            "sales_ep_thousand_idr": [], "is_promo_period": [],
+        }
     df = load_and_clean_data()
     df = df.sort_values("date", ascending=True).tail(days)
     return {
@@ -73,8 +98,25 @@ def get_chart_data(days: int = 90):
     }
 
 
+@router.post("/upload")
+async def upload_csv(file: UploadFile = File(...)):
+    """Save a CSV to notebooks/data/ — becomes the active dataset immediately."""
+    if not file.filename:
+        raise HTTPException(400, "No filename provided")
+    content = await file.read()
+    try:
+        info = save_uploaded_csv(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    cache_invalidate("stats:")
+    cache_invalidate("forecast:")
+    return info
+
+
 @router.post("/ingest")
 def ingest_data(row: IngestRow):
+    if not has_data():
+        raise HTTPException(400, "No dataset to append to. Upload a CSV first via /api/data/upload.")
     df = load_and_clean_data()
     day_of_week = row.day_of_week or pd.Timestamp(row.date).day_name()
     new_row = pd.DataFrame([{
@@ -90,4 +132,7 @@ def ingest_data(row: IngestRow):
     }])
     updated = pd.concat([df, new_row], ignore_index=True)
     updated.to_csv(DATA_PATH, index=False)
+    # Underlying CSV changed — drop cached summaries and forecasts.
+    cache_invalidate("stats:")
+    cache_invalidate("forecast:")
     return {"message": f"Row for {row.date} ingested successfully."}

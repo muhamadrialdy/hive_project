@@ -1,0 +1,77 @@
+# HIVE — local stack
+#
+#   docker compose up -d          # start everything in background
+#   docker compose logs -f backend
+#   docker compose down           # stop + remove
+#
+# Volumes:
+#   hive-data    persists SQLite (hive.db) and any trained model artifacts
+#   redis-data   persists Redis snapshots between restarts
+#
+# Networking: backend, frontend, and redis share the default compose network.
+# nginx (frontend) proxies /api/* to backend:8088. The frontend itself uses
+# relative /api URLs (set via VITE_API_URL at build time below) so the SPA
+# code calls the same origin as the page — no CORS needed in production.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8088"
+      # nginx fronts the API on the same origin, so wildcard isn't a security
+      # issue in this configuration. Tighten in production.
+      CORS_ORIGINS: "*"
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: sqlite:////app/data-persist/hive.db
+      # SECRET_KEY MUST be overridden via .env or `docker compose --env-file`.
+      SECRET_KEY: ${SECRET_KEY:-hive-dev-only-change-me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - hive-data:/app/data-persist
+    expose:
+      - "8088"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: hive_frontend/Dockerfile
+      args:
+        # Baked into the bundle at build time. Since nginx proxies /api, the
+        # SPA can use a relative URL.
+        VITE_API_URL: /api
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    expose:
+      - "6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  hive-data:
+  redis-data:

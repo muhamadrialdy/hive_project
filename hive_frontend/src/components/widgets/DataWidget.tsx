@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import Plotly from 'plotly.js-dist-min';
-import { Database, Plus, RefreshCw, BarChart2, Table } from 'lucide-react';
-
-const API = 'http://127.0.0.1:8088/api';
+import { Database, Plus, RefreshCw, BarChart2, Table, Upload, FileText } from 'lucide-react';
+import { API_URL as API } from '../../config';
 
 const DARK_LAYOUT = (title: string) => ({
   title: { text: title, font: { color: '#e2e8f0', size: 13 } },
@@ -39,6 +38,12 @@ const DataWidget: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [chartData, setChartData] = useState<any>(null);
   const [chartDays, setChartDays] = useState(90);
+
+  // Dataset presence + upload state
+  const [hasData, setHasData] = useState<boolean | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Ingest form
   const [form, setForm] = useState({
@@ -77,7 +82,39 @@ const DataWidget: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { fetchTable(0); }, [fetchTable]);
+  const fetchDataStatus = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/data/status`);
+      setHasData(!!res.data.has_data);
+    } catch {
+      setHasData(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchDataStatus(); }, [fetchDataStatus]);
+  useEffect(() => { if (hasData) fetchTable(0); }, [hasData, fetchTable]);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    setUploadMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await axios.post(`${API}/data/upload`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setUploadMsg({ ok: true, text: `Loaded ${res.data.rows.toLocaleString()} rows from ${res.data.filename}` });
+      setHasData(true);
+      // Pull fresh table data
+      fetchTable(0);
+      if (activeTab === 'charts') fetchChartData(chartDays);
+    } catch (err: any) {
+      setUploadMsg({ ok: false, text: err?.response?.data?.detail ?? 'Upload failed' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'charts') fetchChartData(chartDays);
@@ -151,6 +188,72 @@ const DataWidget: React.FC = () => {
       {icon} {label}
     </button>
   );
+
+  const UploadCard: React.FC<{ compact?: boolean }> = ({ compact }) => (
+    <div className="glass-panel" style={{ padding: compact ? '1.25rem' : '2.5rem', textAlign: 'center', maxWidth: compact ? undefined : '520px', margin: compact ? undefined : '0 auto' }}>
+      <FileText size={compact ? 24 : 40} color="var(--secondary)" style={{ opacity: 0.7, marginBottom: '0.75rem' }} />
+      <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', fontSize: compact ? '1rem' : '1.15rem' }}>
+        {compact ? 'Upload another CSV' : 'No dataset yet'}
+      </h3>
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+        {compact
+          ? 'New uploads land in notebooks/data/ and become the active dataset immediately.'
+          : 'Upload an HDI daily-ops CSV to get started. It will be saved to notebooks/data/ and become the active dataset.'}
+      </p>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleUpload(f);
+        }}
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="glass-button"
+        style={{ padding: '8px 18px', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+      >
+        <Upload size={15} /> {uploading ? 'Uploading…' : 'Choose CSV'}
+      </button>
+      {uploadMsg && (
+        <div style={{
+          marginTop: '0.9rem', fontSize: '0.82rem',
+          color: uploadMsg.ok ? 'var(--accent-success)' : 'var(--accent-danger)',
+        }}>
+          {uploadMsg.text}
+        </div>
+      )}
+      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
+        Required columns: date, is_promo_period, new_enterpriser_count, new_bee_count,
+        transaction_volume_online, transaction_volume_offline, sales_ep_thousand_idr
+      </div>
+    </div>
+  );
+
+  // Until /api/data/status responds, render nothing rather than flashing the empty state.
+  if (hasData === null) {
+    return (
+      <div style={{ padding: '2rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading…</div>
+    );
+  }
+
+  // Empty-state takeover when no CSV exists yet.
+  if (!hasData) {
+    return (
+      <div style={{ padding: '2rem', height: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Data Management</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No data loaded yet.</p>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <UploadCard />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '2rem', height: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -246,7 +349,8 @@ const DataWidget: React.FC = () => {
 
       {/* INGEST TAB */}
       {activeTab === 'ingest' && (
-        <div style={{ flex: 1, display: 'flex', gap: '1.5rem', overflow: 'auto' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflow: 'auto' }}>
+          <UploadCard compact />
           <div className="glass-panel" style={{ flex: 1, padding: '1.5rem' }}>
             <h3 style={{ fontWeight: 'bold', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Plus size={17} color="var(--primary)" /> Manual Data Ingestion

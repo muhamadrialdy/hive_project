@@ -7,7 +7,9 @@ export default withMermaid(defineConfig({
   // cleanUrls is intentionally disabled: when embedded in the React frontend at /docs/,
   // Vite's SPA fallback would otherwise intercept extension-less paths.
   cleanUrls: false,
-  lastUpdated: true,
+  // lastUpdated reads `git log` and requires git inside the build environment.
+  // Disabled so the docs build cleanly in Docker (node:alpine) without git.
+  lastUpdated: false,
 
   // Served under /docs/ inside the React frontend.
   base: '/docs/',

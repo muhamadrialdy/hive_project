@@ -5,7 +5,7 @@ import {
   Folder, ChevronRight, ChevronDown, X, Save, FilePlus, FolderPlus, Pencil,
 } from 'lucide-react';
 
-const API = 'http://127.0.0.1:8088/api';
+import { API_URL as API } from '../../config';
 
 const STARTER_CELL = `# HIVE Notebook — pandas, numpy, matplotlib pre-loaded.
 # Click a .ipynb or .py file in the browser to load it, or start coding below.

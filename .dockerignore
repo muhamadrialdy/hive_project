@@ -1,0 +1,46 @@
+# Version control + IDE
+.git
+.gitignore
+.gitmessage
+.vscode
+.idea
+
+# Python
+__pycache__
+*.py[oc]
+.venv
+venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
+*.egg-info
+
+# Node (frontend is built in its own image)
+hive_frontend/node_modules
+hive_frontend/dist
+hive_frontend/public/docs
+docs/node_modules
+docs/.vitepress/cache
+docs/.vitepress/dist
+
+# Local state
+*.db
+*.sqlite
+.env
+.env.*
+hive.db
+test.db
+app/models_store/*.joblib
+
+# Build artifacts and OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# Docs / docker meta (not needed in image)
+ARCHITECTURE.md
+API.md
+README.md
+docker-compose.yml
+Dockerfile
+.dockerignore
