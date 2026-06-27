@@ -155,7 +155,7 @@ const MLWidget: React.FC = () => {
       </div>
 
       {/* Metrics + Forecast row */}
-      <div style={{ display: 'flex', gap: '1.5rem', minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'stretch' }}>
         {/* Model Health */}
         <div className="glass-panel" style={{ width: '220px', flexShrink: 0, padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <h3 style={{ color: 'var(--text-muted)', marginBottom: '1rem', textAlign: 'center', fontSize: '0.9rem' }}>Model Health</h3>
@@ -212,7 +212,7 @@ const MLWidget: React.FC = () => {
               />
             </div>
           </div>
-          <div style={{ flex: 1, minHeight: '260px' }}>
+          <div style={{ height: '260px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={forecast}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
