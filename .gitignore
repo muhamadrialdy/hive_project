@@ -1,0 +1,48 @@
+# ── Secrets & Credentials ──────────────────────────────────────────────────────
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[oc]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+wheels/
+
+# ── Node / Frontend ────────────────────────────────────────────────────────────
+node_modules/
+.npm/
+*.local
+
+# ── Databases ──────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Notebooks ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Test & Lint Cache ──────────────────────────────────────────────────────────
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── VitePress ──────────────────────────────────────────────────────────────────
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
+# ── ML model artifacts (regenerable via POST /api/ml/train) ────────────────────
+app/models_store/*.joblib
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

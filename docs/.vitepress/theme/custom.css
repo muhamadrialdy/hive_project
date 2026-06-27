@@ -1,0 +1,30 @@
+/* Allow Mermaid diagrams to render at their natural size, with horizontal scroll
+   when they exceed the content column. Default VitePress shrinks them to fit,
+   which makes text unreadable for any non-trivial diagram. */
+.mermaid {
+  overflow-x: auto;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.mermaid svg {
+  /* Mermaid sets width="100%", which makes the SVG shrink to fit and
+     squashes labels. Force natural width so the diagram is readable; the
+     .mermaid wrapper scrolls horizontally when it overflows the column. */
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  display: inline-block;
+}
+
+/* Subtle scrollbar styling so the scroll affordance is visible but not noisy */
+.mermaid::-webkit-scrollbar {
+  height: 8px;
+}
+.mermaid::-webkit-scrollbar-thumb {
+  background: var(--vp-c-divider);
+  border-radius: 4px;
+}
+.mermaid::-webkit-scrollbar-thumb:hover {
+  background: var(--vp-c-text-3);
+}

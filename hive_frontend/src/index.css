@@ -1,0 +1,207 @@
+:root {
+  --bg-dark: #0f172a;
+  --bg-glass: rgba(30, 41, 59, 0.7);
+  --bg-glass-hover: rgba(51, 65, 85, 0.8);
+
+  /* HDI brand colors */
+  --primary: #E8312A;
+  --primary-hover: #C41F1A;
+  --secondary: #F0921E;
+
+  --accent-success: #10b981;
+  --accent-warning: #F0921E;
+  --accent-danger: #ef4444;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --blur-amount: blur(12px);
+
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--bg-dark);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(232, 49, 42, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(240, 146, 30, 0.10) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: var(--blur-amount);
+  -webkit-backdrop-filter: var(--blur-amount);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  box-shadow: var(--shadow-glass);
+  transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.glass-input {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  padding: 12px 16px;
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.glass-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(232, 49, 42, 0.3);
+}
+
+.glass-button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.glass-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(232, 49, 42, 0.4);
+}
+
+.glass-button:active {
+  transform: translateY(0);
+}
+
+.glass-button.secondary {
+  background: transparent;
+  border: 1px solid var(--border-glass);
+}
+
+.glass-button.secondary:hover {
+  background: var(--bg-glass-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Notebook widget */
+.notebook-cell {
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+.notebook-cell:focus-within {
+  border-color: rgba(232, 49, 42, 0.4);
+}
+.notebook-cell-header {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--border-glass);
+}
+.notebook-cell-code {
+  font-family: 'Fira Code', 'Cascadia Code', 'Monaco', 'Menlo', monospace;
+  font-size: 0.855rem;
+  line-height: 1.65;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.28);
+  color: #e2e8f0;
+  border: none;
+  outline: none;
+  padding: 0.85rem 1rem;
+  resize: vertical;
+  min-height: 54px;
+  display: block;
+  tab-size: 4;
+}
+.notebook-cell-code::placeholder {
+  color: rgba(148, 163, 184, 0.4);
+}
+.notebook-cell-output {
+  padding: 0.7rem 1rem;
+  background: rgba(0, 0, 0, 0.18);
+  border-top: 1px solid var(--border-glass);
+  max-height: 360px;
+  overflow-y: auto;
+}
+.notebook-output-text {
+  color: #86efac;
+  font-family: 'Fira Code', 'Monaco', monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  margin: 0;
+}
+.notebook-output-error {
+  color: #fca5a5;
+  font-family: 'Fira Code', 'Monaco', monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  margin: 0;
+}
