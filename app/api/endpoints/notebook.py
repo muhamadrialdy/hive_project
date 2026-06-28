@@ -29,11 +29,15 @@ from pathlib import Path
 import sys, os, warnings, subprocess
 warnings.filterwarnings('ignore')
 
-DATA_PATH    = Path(r'{data_path}')
-DATA_DIR     = DATA_PATH.parent
 PROJECT_ROOT = Path(r'{project_root}')
+_data_path_str = r'{data_path}'
+DATA_PATH = Path(_data_path_str) if _data_path_str else None
+DATA_DIR  = DATA_PATH.parent if DATA_PATH else PROJECT_ROOT / 'notebooks' / 'data'
 
 def load_data():
+    if DATA_PATH is None or not DATA_PATH.exists():
+        raise FileNotFoundError(
+            'No CSV data file found. Place hdi_daily_ops.csv in notebooks/data/ or data/')
     df = pd.read_csv(DATA_PATH)
     df['date'] = pd.to_datetime(df['date'])
     return df
@@ -103,8 +107,9 @@ def _get_kernel(session_id: str) -> dict:
     if session_id not in _kernels:
         ns: dict = {}
         active_data = _resolve_data_path()
+        data_path_str = str(active_data) if active_data else ''
         bootstrap = _BOOTSTRAP.format(
-            data_path=str(active_data),
+            data_path=data_path_str,
             project_root=str(_PROJECT_ROOT),
         )
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
