@@ -11,12 +11,12 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from app.services.data_pipeline import DATA_PATH as _DATA_PATH, _NOTEBOOKS_DATA, _resolve_data_path
+from app.services.data_pipeline import _NOTEBOOKS_DATA, _resolve_data_path
 
 router = APIRouter()
 
 _kernels: dict[str, dict] = {}
-_PROJECT_ROOT  = Path(_DATA_PATH).parent.parent.parent  # hive_project/
+_PROJECT_ROOT  = Path(__file__).parent.parent.parent.parent  # hive_project/
 _NOTEBOOKS_DIR = _PROJECT_ROOT / "notebooks"
 
 _BOOTSTRAP = """\

@@ -151,8 +151,9 @@ def ask_hive_agent(question: str, api_key: str, model_name: str, history: list =
         config=types.GenerateContentConfig(system_instruction=system_instruction)
     )
     
-    import markdown
-    answer_text = markdown.markdown(response.text)
+    import re, markdown
+    raw = re.sub(r'([^\n])(\n)([\*\-\+] |\d+[\.\)] )', r'\1\n\n\3', response.text)
+    answer_text = markdown.markdown(raw)
     
     q_lower = question.lower()
     
