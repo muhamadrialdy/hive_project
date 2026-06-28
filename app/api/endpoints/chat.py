@@ -90,9 +90,6 @@ def ask_question_in_session(
     api_key = api_key_record.value if api_key_record else None
     model_name = model_record.value if model_record else "gemini-3.0-flash"
 
-    if not api_key:
-        return {"response": "Please configure your Gemini API Key in the Admin Widget first."}
-
     # Auto-set title from first message if still empty
     if not session.title:
         session.title = _auto_title(request.question)
