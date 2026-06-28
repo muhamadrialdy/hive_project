@@ -251,7 +251,7 @@ All widgets are self-contained -- they fetch their own data via axios. There is 
 | App config | `hive.db` → `config` | `key`, `value` (`GEMINI_API_KEY`, `GEMINI_MODEL`) | Updated by admin endpoint |
 | Chat sessions | `hive.db` → `chat_sessions`, `chat_messages` | `id`, `user_id`, `title`, `role` (`user`/`agent`), `content`, `created_at` | Per-user; title auto-set from first 5 words of initial message |
 | Operational data | `notebooks/data/*.csv` (latest mtime), fallback `data/hdi_daily_ops.csv` | Daily ops CSV | Appended via `/api/data/ingest` |
-| Model artifacts | `app/models_store/model_v*.joblib` + `metadata.json` | Pickled `RandomForestRegressor` + metrics, features, timestamp | New version on each `/api/ml/train` |
+| Model artifacts | `notebooks/models_store/model_v*.joblib` + `metadata.json` | Pickled `RandomForestRegressor` + metrics, features, timestamp | New version on each `/api/ml/train` |
 | Notebooks | `notebooks/*.ipynb`, `notebooks/*.py` | nbformat 4.x or plain Python | Created / edited / saved via `/api/notebook` |
 | Notebook kernel state | In-memory `_kernels: dict[session_id, namespace]` | Plain Python dict | Lost on server restart |
 

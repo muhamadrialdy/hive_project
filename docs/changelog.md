@@ -9,6 +9,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v0.3.2] -- 2026-06-28
+
+### Fixed
+
+- **`.env.example` gitignored** -- the `.env.*` pattern in `.gitignore` was catching `.env.example`. Added a `!.env.example` negation so the example env file is tracked.
+- **Notebook CSV path resolution in Docker** -- `notebook.py` derived `_PROJECT_ROOT` from `DATA_PATH` which failed when no CSV existed (proxy object triggered `FileNotFoundError` at import time). Now derives from `__file__`. Bootstrap also handles missing CSV gracefully (`DATA_PATH = None`).
+- **Sales IDR display** -- chat agent and chart showed `sales_ep_thousand_idr` raw values (in thousands). Now multiplies by 1000 so Gemini responses and the sales trend chart display actual IDR values. System instruction explicitly tells the model that values are in full IDR.
+
+### Changed
+
+- **Model store location** -- trained model artifacts moved from `app/models_store/` to `notebooks/models_store/`. The directory is gitignored and created on first train. Keeps all data-science artifacts (notebooks, data, models) under one tree.
+
+---
+
 ## [v0.3.0] -- 2026-06-28
 
 ### Added
