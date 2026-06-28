@@ -18,6 +18,7 @@ interface IFileNode { name: string; path: string; type: 'file' | 'dir'; ext?: st
 interface CellOutput { stdout: string; stderr: string; error: string | null; images: string[]; }
 interface Cell {
   id: string;
+  cellType: 'code' | 'markdown';
   code: string;
   output: CellOutput | null;
   running: boolean;
@@ -36,9 +37,10 @@ let _idCounter = 0;
 const newId = () => `cell_${Date.now()}_${_idCounter++}`;
 const makeCell = (
   code = '',
-  opts: { executionCount?: number | null; output?: CellOutput | null; originalIndex?: number | null } = {},
+  opts: { cellType?: 'code' | 'markdown'; executionCount?: number | null; output?: CellOutput | null; originalIndex?: number | null } = {},
 ): Cell => ({
   id: newId(),
+  cellType: opts.cellType ?? 'code',
   code,
   output: opts.output ?? null,
   running: false,
@@ -91,6 +93,9 @@ const cellOutputToNbOutputs = (out: CellOutput | null): any[] => {
 const cellToNbCell = (cell: Cell) => {
   const lines = cell.code.split('\n');
   const source = lines.map((line, i) => (i === lines.length - 1 ? line : line + '\n'));
+  if (cell.cellType === 'markdown') {
+    return { cell_type: 'markdown', metadata: {}, source };
+  }
   return {
     cell_type: 'code',
     execution_count: cell.executionCount,
@@ -98,6 +103,24 @@ const cellToNbCell = (cell: Cell) => {
     outputs: cellOutputToNbOutputs(cell.output),
     source,
   };
+};
+
+const renderMarkdown = (text: string): string => {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/^#### (.+)$/gm, '<h5 style="margin:0.4em 0 0.2em;font-size:0.95rem;font-weight:600">$1</h5>')
+    .replace(/^### (.+)$/gm, '<h4 style="margin:0.5em 0 0.25em;font-size:1rem;font-weight:600">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 style="margin:0.5em 0 0.25em;font-size:1.1rem;font-weight:600">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 style="margin:0.6em 0 0.3em;font-size:1.25rem;font-weight:700">$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:3px;font-size:0.85em;font-family:monospace">$1</code>')
+    .replace(/^\s*[-*] (.+)$/gm, '<div style="margin-left:1.2em;padding:1px 0">&#8226; $1</div>')
+    .replace(/^\s*(\d+)\. (.+)$/gm, '<div style="margin-left:1.2em;padding:1px 0">$1. $2</div>')
+    .replace(/\n\n/g, '<div style="height:0.5em"></div>')
+    .replace(/\n/g, '<br/>');
 };
 
 /* ---- File tree node ---- */
@@ -326,6 +349,7 @@ const NotebookWidget: React.FC = () => {
   const [envPython, setEnvPython]   = useState('3.12');
   const [fileEditor, setFileEditor] = useState<FileEditor | null>(null);
   const [createForm, setCreateForm] = useState<{ parentPath: string; isDir: boolean; name: string } | null>(null);
+  const [editingMdCells, setEditingMdCells] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const nbMetaRef = useRef<any>(DEFAULT_NB_META);
   const nbFormatRef = useRef<{ nbformat: number; nbformat_minor: number }>({ nbformat: 4, nbformat_minor: 5 });
@@ -353,15 +377,22 @@ const NotebookWidget: React.FC = () => {
             nbformat_minor: typeof nb.nbformat_minor === 'number' ? nb.nbformat_minor : 5,
           };
           rawCells.forEach((c, idx) => {
-            if (c?.cell_type !== 'code') return;
-            const code = asText(c.source);
-            const exec = typeof c.execution_count === 'number' ? c.execution_count : null;
-            if (exec && exec > maxExec) maxExec = exec;
-            newCells.push(makeCell(code, {
-              executionCount: exec,
-              output: nbOutputsToCellOutput(c.outputs),
-              originalIndex: idx,
-            }));
+            if (c?.cell_type === 'code') {
+              const code = asText(c.source);
+              const exec = typeof c.execution_count === 'number' ? c.execution_count : null;
+              if (exec && exec > maxExec) maxExec = exec;
+              newCells.push(makeCell(code, {
+                cellType: 'code',
+                executionCount: exec,
+                output: nbOutputsToCellOutput(c.outputs),
+                originalIndex: idx,
+              }));
+            } else if (c?.cell_type === 'markdown') {
+              newCells.push(makeCell(asText(c.source), {
+                cellType: 'markdown',
+                originalIndex: idx,
+              }));
+            }
           });
         } catch {
           originalNbCellsRef.current = [];
@@ -486,14 +517,13 @@ const NotebookWidget: React.FC = () => {
         const newOriginal: any[] = [];
         const newIndexByCellId = new Map<string, number>();
         original.forEach((orig, idx) => {
-          if (orig?.cell_type === 'code') {
+          if (orig?.cell_type === 'code' || orig?.cell_type === 'markdown') {
             const entry = updatedByIndex.get(idx);
             if (entry) {
               newIndexByCellId.set(entry.cellId, finalCells.length);
               finalCells.push(entry.nb);
               newOriginal.push(entry.nb);
             }
-            // else: deleted in UI — skip
           } else {
             finalCells.push(orig);
             newOriginal.push(orig);
@@ -746,18 +776,39 @@ const NotebookWidget: React.FC = () => {
             <div key={cell.id} className="notebook-cell">
               {/* Cell header */}
               <div className="notebook-cell-header">
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace', minWidth: '32px' }}>
-                  [{cell.executionCount ?? ' '}]
-                </span>
+                {cell.cellType === 'code' ? (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace', minWidth: '32px' }}>
+                    [{cell.executionCount ?? ' '}]
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '0.68rem', color: 'var(--secondary)', fontFamily: 'monospace', padding: '1px 6px', background: 'rgba(240,146,30,0.12)', borderRadius: '3px' }}>
+                    MD
+                  </span>
+                )}
                 <span style={{ flex: 1 }} />
-                <button
-                  onClick={() => runCell(cell.id)}
-                  disabled={cell.running}
-                  title="Run (Ctrl+Enter)"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: cell.running ? 'var(--text-muted)' : 'var(--accent-success)', padding: '2px 4px', display: 'flex', alignItems: 'center' }}
-                >
-                  {cell.running ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} fill="currentColor" />}
-                </button>
+                {cell.cellType === 'code' && (
+                  <button
+                    onClick={() => runCell(cell.id)}
+                    disabled={cell.running}
+                    title="Run (Ctrl+Enter)"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: cell.running ? 'var(--text-muted)' : 'var(--accent-success)', padding: '2px 4px', display: 'flex', alignItems: 'center' }}
+                  >
+                    {cell.running ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} fill="currentColor" />}
+                  </button>
+                )}
+                {cell.cellType === 'markdown' && (
+                  <button
+                    onClick={() => setEditingMdCells(prev => {
+                      const next = new Set(prev);
+                      if (next.has(cell.id)) next.delete(cell.id); else next.add(cell.id);
+                      return next;
+                    })}
+                    title={editingMdCells.has(cell.id) ? 'View rendered' : 'Edit source'}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px 4px', display: 'flex', alignItems: 'center' }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                )}
                 <button onClick={() => addCell(cell.id)} title="Insert below" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
                   <Plus size={13} />
                 </button>
@@ -766,15 +817,38 @@ const NotebookWidget: React.FC = () => {
                 </button>
               </div>
 
-              {/* Code */}
-              <CellCode
-                code={cell.code}
-                onChange={v => updateCellCode(cell.id, v)}
-                onRun={() => runCell(cell.id)}
-              />
+              {/* Content */}
+              {cell.cellType === 'markdown' ? (
+                editingMdCells.has(cell.id) ? (
+                  <CellCode
+                    code={cell.code}
+                    onChange={v => updateCellCode(cell.id, v)}
+                    onRun={() => setEditingMdCells(prev => { const next = new Set(prev); next.delete(cell.id); return next; })}
+                  />
+                ) : (
+                  <div
+                    onDoubleClick={() => setEditingMdCells(prev => new Set(prev).add(cell.id))}
+                    style={{
+                      padding: '0.6rem 0.85rem',
+                      color: '#e2e8f0',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.6,
+                      cursor: 'text',
+                      minHeight: '2em',
+                    }}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(cell.code) }}
+                  />
+                )
+              ) : (
+                <CellCode
+                  code={cell.code}
+                  onChange={v => updateCellCode(cell.id, v)}
+                  onRun={() => runCell(cell.id)}
+                />
+              )}
 
-              {/* Output */}
-              {cell.output && (
+              {/* Output (code cells only) */}
+              {cell.cellType === 'code' && cell.output && (
                 <div className="notebook-cell-output">
                   {cell.output.error && (
                     <pre style={{ color: '#fca5a5', fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', margin: 0, padding: '0.4rem 0.5rem', background: 'rgba(239,68,68,0.08)', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.2)', maxHeight: '240px', overflowY: 'auto' }}>

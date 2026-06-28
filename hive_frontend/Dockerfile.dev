@@ -1,0 +1,15 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY hive_frontend/package.json hive_frontend/package-lock.json ./
+RUN npm ci
+
+COPY hive_frontend ./
+
+# Skip docs prebuild in dev (runs via predev hook otherwise)
+RUN node -e "const p=require('./package.json'); delete p.scripts.predev; require('fs').writeFileSync('./package.json', JSON.stringify(p,null,2))"
+
+EXPOSE 5173
+
+CMD ["npx", "vite", "--host", "0.0.0.0"]

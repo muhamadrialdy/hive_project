@@ -1,0 +1,33 @@
+# Dev override -- hot reload for backend + frontend.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# First build only. After that, code changes apply immediately (no rebuild).
+# Backend: uvicorn --reload watches Python files via volume mount.
+# Frontend: Vite dev server with HMR.
+#
+# Access the app at http://localhost:5173
+
+services:
+  backend:
+    volumes:
+      - ./app:/app/app
+      - ./main.py:/app/main.py
+      - ./data:/app/data
+      - ./notebooks:/app/notebooks
+      - ./scripts:/app/scripts
+    ports:
+      - "8088:8088"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: hive_frontend/Dockerfile.dev
+    volumes:
+      - ./hive_frontend/src:/app/src
+      - ./hive_frontend/index.html:/app/index.html
+      - ./hive_frontend/vite.config.ts:/app/vite.config.ts
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8088/api

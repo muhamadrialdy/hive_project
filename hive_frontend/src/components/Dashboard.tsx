@@ -12,8 +12,8 @@ import UsersWidget from './widgets/UsersWidget';
 interface NavItem { id: string; icon: React.ElementType; label: string; superAdminOnly?: boolean }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'data',  icon: Database,      label: 'Data Management' },
-  { id: 'ml',    icon: Activity,      label: 'MLOps & Tuning'  },
+  { id: 'data',  icon: Database,      label: 'Data Management', superAdminOnly: true },
+  { id: 'ml',    icon: Activity,      label: 'MLOps & Tuning',  superAdminOnly: true },
   { id: 'chat',  icon: MessageSquare, label: 'Gemini Agent'    },
   { id: 'docs',  icon: BookOpen,      label: 'Documentation'   },
   { id: 'users', icon: Users,         label: 'Users',           superAdminOnly: true },
@@ -21,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const Dashboard: React.FC = () => {
   const { logout, user, isSuperAdmin } = useAuth();
-  const [activeTab, setActiveTab]     = useState('data');
+  const [activeTab, setActiveTab]     = useState(isSuperAdmin ? 'data' : 'chat');
   const [collapsed, setCollapsed]     = useState(false);
 
   // Hide super-admin-only entries (Users widget + Settings & API) from regular users.

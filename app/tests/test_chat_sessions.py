@@ -29,7 +29,7 @@ def override_get_db():
 
 def override_get_current_user():
     # Bypass JWT auth in tests with a stub user
-    return User(id=1, email="test@example.com", hashed_password="x")
+    return User(id=1, email="test@example.com", hashed_password="x", role="super_admin", status="approved")
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user

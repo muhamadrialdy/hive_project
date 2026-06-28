@@ -22,7 +22,7 @@ class ChatResponse(BaseModel):
     response: str
 
 class ChatSessionCreate(BaseModel):
-    title: str
+    title: Optional[str] = ""
 
 class ChatMessageModel(BaseModel):
     id: int

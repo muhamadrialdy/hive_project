@@ -23,6 +23,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = 'hive_token';
 const USER_KEY = 'hive_user';
 
+// Set auth header immediately at module load so child components can make
+// authenticated requests in their first useEffect (before the AuthProvider's
+// own useEffect runs).
+const _initialToken = localStorage.getItem(TOKEN_KEY);
+if (_initialToken) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${_initialToken}`;
+}
+
 const readUser = (): AuthUser | null => {
   try {
     const raw = localStorage.getItem(USER_KEY);
