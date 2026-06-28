@@ -23,6 +23,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v0.3.1] -- 2026-06-28
+
+### Added
+
+- **Smart visualization catalog** -- the chat agent now recognises generic visualization requests (e.g. "buatkan visualisasi dari data yang ada") and offers a numbered suggestion menu of 6 chart types: Enterpriser trend, sales trend, online vs offline, day-of-week registrations, promo impact, and forecast.
+- **Auto-pick best charts** -- when the user replies "apa saja", the agent evaluates the dataset and selects the 3 most relevant charts automatically (e.g. promo impact only if promo data exists).
+- **Indonesian time word parsing** -- `seminggu`, `sebulan`, `triwulan`, `setahun`, and other Indonesian time words are now mapped to day counts for trend and forecast queries. "N hari" numeric patterns are also supported.
+- **Follow-up chart selection** -- users can pick charts by number (e.g. "1, 3, 5") with a maximum of 3 at a time.
+- **Changelog page** in VitePress documentation site, linked from the nav bar and sidebar.
+
+### Fixed
+
+- **Markdown bullet points not rendering in chat** -- Gemini returns list markers without a preceding blank line, which Python's `markdown` library requires. Added regex preprocessing to insert the blank line automatically.
+- **Import crash without CSV** -- `data_pipeline.py` raised `FileNotFoundError` at module import when no CSV existed. Fixed by deferring path resolution.
+
+### Changed
+
+- **MVP designation** -- project title updated to "HIVE -- HDI Intelligence & Value Engine (MVP)" across README, VitePress config, and docs.
+- **CSV files removed from repo** -- users now provide their own `hdi_daily_ops.csv`. `.gitignore` updated with `data/*.csv` and `notebooks/data/*.csv` patterns. README documents the required CSV placement and column schema.
+- **Visualization requests bypass API key check** -- chart-only requests no longer require a Gemini API key since they are generated locally without calling the LLM.
+
+---
+
 ## [v0.3.0] -- 2026-06-28
 
 ### Added
