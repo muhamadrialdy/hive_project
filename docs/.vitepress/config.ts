@@ -29,6 +29,7 @@ export default withMermaid(defineConfig({
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Architecture', link: '/architecture' },
       { text: 'API', link: '/api' },
+      { text: 'Changelog', link: '/changelog' },
     ],
 
     sidebar: {
@@ -47,6 +48,7 @@ export default withMermaid(defineConfig({
           items: [
             { text: 'Architecture', link: '/architecture' },
             { text: 'API reference', link: '/api' },
+            { text: 'Changelog', link: '/changelog' },
           ],
         },
       ],
