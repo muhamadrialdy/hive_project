@@ -4,8 +4,8 @@ All endpoints are mounted under `/api`. The backend runs on `http://127.0.0.1:80
 
 FastAPI auto-generates an OpenAPI explorer at `http://127.0.0.1:8088/docs` — this page is the curated companion describing each route's purpose, request shape, and a copy-paste example.
 
-::: warning Auth status
-The JWT issued by `/auth/login` is not currently enforced on downstream routes. The token is used by the frontend to gate UI access only. See [Production considerations](/guide/production#4-jwt-not-enforced-downstream).
+::: info Auth
+Chat endpoints require a valid Bearer token (JWT from `/auth/login`). Other routes are not yet enforced. See [Production considerations](/guide/production#3-jwt-partially-enforced).
 :::
 
 [[toc]]
@@ -14,25 +14,27 @@ The JWT issued by `/auth/login` is not currently enforced on downstream routes. 
 
 ### `POST /auth/login`
 
-OAuth2-password-flow login. The first password submitted for `admin.hive@gmail.com` becomes the permanent password.
+OAuth2-password-flow login. For `admin.hive@gmail.com` (the whitelisted super admin), the first password submitted becomes the permanent password. Regular users must register and be approved before logging in.
 
 **Request (form-encoded):**
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `username` | string | yes | Must be `admin.hive@gmail.com` |
-| `password` | string | yes | Set permanently on first login |
+| `username` | string | yes | User email address |
+| `password` | string | yes | Set permanently on first login for super admin |
 
 **Response 200:**
 
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIs…",
-  "token_type": "bearer"
+  "token_type": "bearer",
+  "user": { "id": 1, "email": "admin.hive@gmail.com", "role": "super_admin", "status": "approved" }
 }
 ```
 
 **Response 400:** `{"detail": "Incorrect username or password"}`
+**Response 403:** `{"detail": "Account is pending. Wait for a super admin to approve."}`
 
 **Example:**
 
@@ -42,7 +44,37 @@ curl -X POST http://127.0.0.1:8088/api/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded"
 ```
 
+### `POST /auth/register`
+
+Create a new user account. The account starts in `pending` status and must be approved by a super admin before the user can log in. The whitelisted email `admin.hive@gmail.com` is auto-approved as `super_admin`.
+
+**Request body:**
+
+```json
+{ "email": "user@example.com", "password": "securepassword" }
+```
+
+**Response 201:**
+
+```json
+{ "id": 2, "email": "user@example.com", "role": "user", "status": "pending" }
+```
+
+**Response 409:** `{"detail": "An account with this email already exists."}`
+
+### `GET /auth/me`
+
+Return the current authenticated user's profile. Requires a valid Bearer token.
+
+**Response 200:**
+
+```json
+{ "id": 1, "email": "admin.hive@gmail.com", "role": "super_admin", "status": "approved" }
+```
+
 ## `/api/admin`
+
+All admin endpoints require `super_admin` role. Returns 403 for regular users.
 
 ### `GET /admin/config`
 
@@ -67,6 +99,37 @@ Upsert the Gemini configuration. The model name is restricted to a known list; u
 **Allowed models:** `gemini-3.5-flash`, `gemini-3.0-flash`, `gemini-3.1-flash-lite`, `gemini-2.5-flash`.
 
 **Response 200:** `{"message": "Configuration updated successfully"}`
+
+### `GET /admin/users`
+
+List all registered users with their role and approval status.
+
+**Response 200:**
+
+```json
+[
+  { "id": 1, "email": "admin.hive@gmail.com", "role": "super_admin", "status": "approved" },
+  { "id": 2, "email": "user@example.com", "role": "user", "status": "pending" }
+]
+```
+
+### `POST /admin/users/{user_id}/approve`
+
+Approve a pending user account.
+
+**Response 200:** `{"message": "User approved"}`
+
+### `POST /admin/users/{user_id}/reject`
+
+Reject a pending user account.
+
+**Response 200:** `{"message": "User rejected"}`
+
+### `DELETE /admin/users/{user_id}`
+
+Delete a user account.
+
+**Response 200:** `{"message": "User deleted"}`
 
 ## `/api/data`
 
@@ -236,25 +299,25 @@ Iterative N-day forecast of `new_enterpriser_count`. Each predicted value is app
 
 ## `/api/chat`
 
-Persistent chat sessions backed by SQLite. The agent uses Gemini configured via `/admin/config`.
+Persistent chat sessions backed by SQLite, scoped per user. All chat endpoints require a valid Bearer token. The agent uses Gemini configured via `/admin/config`.
 
 ### `POST /chat/sessions`
 
-Create a new session.
+Create a new session. The title is optional -- when omitted, it is auto-set from the first 5 words of the first message sent to the session.
 
-**Request body:** `{"title": "My investigation"}`
+**Request body:** `{"title": "My investigation"}` or `{}`
 
 **Response 200:** `{"id": 7, "title": "My investigation", "messages": []}`
 
 ### `GET /chat/sessions`
 
-List all sessions, newest-first. `messages` is always empty in the list view — fetch a specific session to get its messages.
+List sessions for the authenticated user, newest-first. `messages` is always empty in the list view -- fetch a specific session to get its messages.
 
 **Response 200:** `[{"id": 7, "title": "My investigation", "messages": []}, ...]`
 
 ### `GET /chat/sessions/{session_id}`
 
-Full session including ordered message history.
+Full session including ordered message history. Only returns sessions owned by the authenticated user.
 
 **Response 200:**
 
@@ -264,7 +327,7 @@ Full session including ordered message history.
   "title": "My investigation",
   "messages": [
     {"id": 12, "role": "user",  "content": "Berapa total Enterpriser baru minggu ini?"},
-    {"id": 13, "role": "agent", "content": "Minggu ini (20–26 Juni) tercatat 924 Enterpriser baru..."}
+    {"id": 13, "role": "agent", "content": "Minggu ini (20-26 Juni) tercatat 924 Enterpriser baru..."}
   ]
 }
 ```
@@ -273,13 +336,16 @@ Full session including ordered message history.
 
 Send a question. The user message is persisted, the agent is called with the prior history as context, and the agent's HTML answer is persisted and returned. Trend / forecast questions may include an embedded Plotly chart placeholder.
 
+If the session title is empty (auto-created session), it is set to the first 5 words of the question.
+
 **Request body:** `{"question": "Tunjukkan tren EP penjualan 30 hari terakhir"}`
 
 **Response 200:**
 
 ```json
 {
-  "response": "<p>Tren penjualan EP selama 30 hari terakhir menunjukkan...</p><div class=\"plotly-chart-container\" data-bconfig=\"eyJkYXRhIjpb...\"></div>"
+  "response": "<p>Tren penjualan EP selama 30 hari terakhir menunjukkan...</p><div class=\"plotly-chart-container\" data-bconfig=\"eyJkYXRhIjpb...\"></div>",
+  "session_title": "Tunjukkan tren EP penjualan 30"
 }
 ```
 
@@ -287,7 +353,7 @@ If no Gemini API key is configured, the response is `{"response": "Please config
 
 ### `DELETE /chat/sessions/{session_id}`
 
-Delete a session and its messages.
+Delete a session and its messages. Only the session owner can delete.
 
 **Response 200:** `{"message": "Session deleted successfully"}`
 

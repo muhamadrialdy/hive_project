@@ -17,17 +17,11 @@ For a public deployment, either:
 - **Disable the notebook router entirely** by removing it from `app/api/api_router.py`
 - **Sandbox the kernel** behind a per-user container (Docker / gVisor / Firejail) and proxy execution requests
 
-### 3. Single hard-coded user
+### 3. JWT partially enforced
 
-`/api/auth/login` accepts only `admin.hive@gmail.com`. The first password submitted becomes permanent. There is no signup, password reset, or role separation.
+Chat endpoints (`/api/chat/*`) require a valid Bearer token and scope sessions per user. Admin endpoints require super-admin role. However, other routes (`/api/data/*`, `/api/ml/*`, `/api/forecast/*`, `/api/notebook/*`) do not enforce authentication yet.
 
-For multi-user use, replace with a proper user table + admin-only user-creation endpoint.
-
-### 4. JWT not enforced downstream
-
-The login endpoint issues a JWT, but no downstream route depends on it. The frontend uses the token to gate UI access only — any API client can call `/api/notebook/execute`, `/api/admin/config`, `/api/data/ingest`, etc. unauthenticated.
-
-Add `Depends(get_current_user)` to every router before deploying.
+Add `Depends(get_current_user)` to every remaining router before deploying.
 
 ## Should-do
 
@@ -79,14 +73,14 @@ SQLite is fine for single-instance demo. For any horizontal scaling:
 
 ### Frontend bundling
 
-Currently served from Vite dev. For production:
+For production deployment, `docker compose up -d --build` builds the frontend with Vite and serves the static bundle via nginx with API proxying. For standalone hosting:
 
 ```bash
 cd hive_frontend
-npm run build       # outputs dist/
+VITE_API_URL=/api npm run build    # outputs dist/
 ```
 
-Serve `dist/` from any static host (Cloudflare Pages, S3+CloudFront, nginx). Update the hardcoded `http://127.0.0.1:8088` references in the widgets to read from a build-time env var.
+Serve `dist/` from any static host (Cloudflare Pages, S3+CloudFront, nginx) with a reverse proxy for `/api` to the backend.
 
 ## Nice-to-have
 

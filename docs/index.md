@@ -24,11 +24,11 @@ features:
   - title: MLOps surface
     details: Train new model versions, list artifacts, and monitor MAE / RMSE / MAPE drift against a rolling 30-day holdout.
   - title: Conversational agent
-    details: Gemini-backed chat that produces Bahasa Indonesia summaries plus inline Plotly charts for trend and forecast questions.
+    details: Gemini-backed chat with per-user sessions, auto-created on first message. Produces Bahasa Indonesia summaries plus inline Plotly charts.
   - title: Notebook workspace
-    details: In-app .ipynb editor with auto-save, execution counts, and round-trip back to nbformat JSON — markdown cells preserved.
-  - title: Single-process deploy
-    details: FastAPI backend, React frontend, SQLite store. The only external dependency is the Gemini API.
+    details: In-app .ipynb editor with markdown cell rendering, auto-save, execution counts, and round-trip back to nbformat JSON.
+  - title: Role-based access
+    details: Super admins access all widgets. Regular users see Gemini Agent and Documentation. Multi-user auth with registration and approval flow.
 ---
 
 ## What's in these docs

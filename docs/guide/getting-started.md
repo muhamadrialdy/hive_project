@@ -38,10 +38,12 @@ npm run dev
 
 The dev server runs on `http://localhost:VITE_PORT` (default `5173`) and calls the backend at `VITE_API_URL` (default `http://127.0.0.1:8088/api`). Both are configurable via `hive_frontend/.env`. If you change `VITE_PORT`, add the new origin to `CORS_ORIGINS` in the backend `.env`.
 
-Open `http://localhost:5173` and log in with `admin.hive@gmail.com`. The password you type on the first attempt becomes the permanent password — there is no separate signup flow.
+Open `http://localhost:5173` and log in with `admin.hive@gmail.com`. The password you type on the first attempt becomes the permanent password.
+
+Super admins have access to all widgets. Regular users can register via the Register tab -- their account starts as `pending` and must be approved by a super admin in the Users widget before they can log in. Regular users see only the Gemini Agent and Documentation widgets.
 
 ::: tip First-time login
-If you mistype the password on the very first login, that mistyped value becomes permanent. Delete `hive.db` and restart the backend to reset.
+If you mistype the password on the very first login for the super admin account, that mistyped value becomes permanent. Delete `hive.db` and restart the backend to reset.
 :::
 
 ## Gemini API key
@@ -62,6 +64,29 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8088 --reload
 ```
 
 The env value is loaded by `app/core/config.py` at startup but does **not** set the model name — use Option A or seed the `config` table directly.
+
+## Docker (development)
+
+For Docker-based development with hot reload (no rebuild on code changes):
+
+```bash
+cd hive_project
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+The first run builds the dev images. After that, code changes apply immediately:
+- **Backend**: Uvicorn watches Python files via volume mount
+- **Frontend**: Vite dev server with HMR on port 5173
+
+Access the app at `http://localhost:5173`. Only rebuild if you change `package.json`, `pyproject.toml`, or Dockerfiles.
+
+For production deployment (static builds, nginx):
+
+```bash
+docker compose up -d --build
+```
+
+Access the app at `http://localhost:80`.
 
 ## Tests
 

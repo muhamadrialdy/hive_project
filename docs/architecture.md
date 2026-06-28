@@ -2,6 +2,8 @@
 
 HIVE is a three-tier system: a React + Vite single-page app, a FastAPI backend, and an embedded in-process notebook kernel. State lives in a local SQLite file (`hive.db`) and on disk (CSV dataset, trained model artifacts, user notebooks). The only external dependency is the Google Gemini API, which is called on demand from the chat agent.
 
+The platform supports multiple users with role-based access: **super admins** have access to all widgets (Data Management, MLOps, Gemini Agent, Documentation, Users, Settings), while **regular users** see only Gemini Agent and Documentation.
+
 This page follows the C4 model — system context → containers → components → key data flows.
 
 [[toc]]
@@ -110,12 +112,12 @@ The dotted edges show direct persistence access from routers that don't go throu
 
 | Router | Endpoints | Key services |
 |---|---|---|
-| `/api/auth` | `POST /login` | `User` model, password hash, JWT |
-| `/api/admin` | `GET/POST /config` | `Config` model (Gemini API key + model name) |
-| `/api/data` | `/summary`, `/table`, `/recent`, `/chart`, `/ingest` | `data_pipeline` |
+| `/api/auth` | `POST /login`, `POST /register`, `GET /me` | `User` model, password hash, JWT |
+| `/api/admin` | `GET/POST /config`, user management | `Config` model, `User` model (super-admin only) |
+| `/api/data` | `/status`, `/table`, `/chart`, `/upload`, `/ingest` | `data_pipeline` |
 | `/api/ml` | `/metrics`, `/train`, `/artifacts` | `data_pipeline`, sklearn, joblib |
 | `/api/forecast` | `/enterprisers` | `forecasting` |
-| `/api/chat` | session CRUD, `/sessions/{id}/ask` | `llm_agent`, `ChatSession`, `ChatMessage` |
+| `/api/chat` | session CRUD, `/sessions/{id}/ask` (auth required) | `llm_agent`, `ChatSession`, `ChatMessage` |
 | `/api/notebook` | `/execute`, file tree CRUD, kernel info | In-process namespace, file I/O on `notebooks/` |
 
 ## Key data flows
@@ -213,27 +215,41 @@ graph TD
     main --> app[App.tsx]
     app --> login[Login]
     app --> dash[Dashboard]
-    dash --> data_w[DataWidget]
-    dash --> ml_w[MLWidget]
-    dash --> chat_w[ChatWidget]
-    dash --> docs_w[DocsWidget]
-    dash --> admin_w[AdminWidget]
+
+    subgraph super_admin_only[Super Admin Only]
+        data_w[DataWidget]
+        ml_w[MLWidget]
+        users_w[UsersWidget]
+        admin_w[AdminWidget]
+    end
+
+    subgraph all_users[All Users]
+        chat_w[ChatWidget]
+        docs_w[DocsWidget]
+    end
+
+    dash --> super_admin_only
+    dash --> all_users
     ml_w --> nb[NotebookWidget]
     docs_w -.iframe.-> docs["/docs/index.html"]
 
     classDef widget fill:#fff3e0,stroke:#f57c00,color:#e65100
-    class data_w,ml_w,chat_w,docs_w,admin_w,nb widget
+    classDef restricted fill:#ffebee,stroke:#c62828,color:#b71c1c
+    class data_w,ml_w,chat_w,docs_w,admin_w,users_w,nb widget
+    class super_admin_only restricted
 ```
 
-All widgets are self-contained — they fetch their own data via axios against `http://127.0.0.1:8088`. There is no global data store. The only shared state is the auth token in `AuthContext`.
+The Dashboard filters navigation based on the user's role (`super_admin` or `user`). Regular users default to the Gemini Agent tab.
+
+All widgets are self-contained -- they fetch their own data via axios. There is no global data store. The only shared state is the auth token and user profile in `AuthContext`.
 
 ## Persistence model
 
 | Store | Location | Schema / format | Lifecycle |
 |---|---|---|---|
-| User auth | `hive.db` → `users` | `id`, `email`, `hashed_password` | First-time login creates and sets password |
+| User auth | `hive.db` → `users` | `id`, `email`, `hashed_password`, `role`, `status` | Registration creates pending user; super admin approves |
 | App config | `hive.db` → `config` | `key`, `value` (`GEMINI_API_KEY`, `GEMINI_MODEL`) | Updated by admin endpoint |
-| Chat sessions | `hive.db` → `chat_sessions`, `chat_messages` | `id`, `title`, `role` (`user`/`agent`), `content`, `created_at` | Permanent until explicit delete |
+| Chat sessions | `hive.db` → `chat_sessions`, `chat_messages` | `id`, `user_id`, `title`, `role` (`user`/`agent`), `content`, `created_at` | Per-user; title auto-set from first 5 words of initial message |
 | Operational data | `notebooks/data/*.csv` (latest mtime), fallback `data/hdi_daily_ops.csv` | Daily ops CSV | Appended via `/api/data/ingest` |
 | Model artifacts | `app/models_store/model_v*.joblib` + `metadata.json` | Pickled `RandomForestRegressor` + metrics, features, timestamp | New version on each `/api/ml/train` |
 | Notebooks | `notebooks/*.ipynb`, `notebooks/*.py` | nbformat 4.x or plain Python | Created / edited / saved via `/api/notebook` |
@@ -255,7 +271,6 @@ The Gemini model name is **not** in env settings — it lives in the `config` ta
 See [Production considerations](/guide/production) for the full list. Quick summary:
 
 - Notebook execution is unsandboxed
-- CORS is wide open
-- JWT is issued but not enforced on downstream routes
-- Single hard-coded user account
+- CORS is wide open in development
+- JWT is enforced on chat endpoints; other routes still unprotected
 - Model is retrained on every forecast request
