@@ -17,7 +17,7 @@ from app.services.cache import invalidate as cache_invalidate
 log = logging.getLogger(__name__)
 router = APIRouter()
 
-MODELS_STORE = Path(__file__).parent.parent.parent / "models_store"
+MODELS_STORE = Path(__file__).parent.parent.parent.parent / "notebooks" / "models_store"
 MODELS_STORE.mkdir(exist_ok=True)
 METADATA_FILE = MODELS_STORE / "metadata.json"
 

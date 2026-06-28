@@ -46,7 +46,7 @@ docs/.vitepress/cache/
 docs/.vitepress/dist/
 
 # ── ML model artifacts (regenerable via POST /api/ml/train) ────────────────────
-app/models_store/*.joblib
+notebooks/models_store/
 
 # ── OS ─────────────────────────────────────────────────────────────────────────
 .DS_Store

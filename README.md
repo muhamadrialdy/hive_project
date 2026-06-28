@@ -35,12 +35,12 @@ hive_project/
 │   │   └── schemas.py            Pydantic request/response models
 │   ├── core/                     Settings + password hashing / JWT
 │   ├── db/session.py             SQLite engine (hive.db)
-│   ├── models_store/             Trained model .joblib artifacts + metadata.json
+│   ├── models/                   Pydantic + SQLAlchemy models
 │   └── tests/                    Pytest suite
 ├── hive_frontend/                React + Vite + TypeScript
 │   ├── src/components/widgets/   DataWidget, MLWidget, ChatWidget, NotebookWidget, AdminWidget
 │   └── vite.config.ts
-├── notebooks/                    User notebooks (exploration.ipynb auto-opens in the app)
+├── notebooks/                    User notebooks, data, and trained model artifacts
 ├── data/                         Place your hdi_daily_ops.csv here (fallback if notebooks/data/ is empty)
 ├── docs/                         VitePress documentation site
 ├── scripts/                      Dev hooks (post-edit test runner)
