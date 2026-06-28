@@ -69,13 +69,15 @@ def _chart_enterpriser_trend(df, days=90, **_):
 
 def _chart_sales_trend(df, days=90, **_):
     d = df.tail(days).copy()
-    d['rolling_avg_7d'] = d['sales_ep_thousand_idr'].rolling(7, min_periods=1).mean()
+    d['sales_idr'] = d['sales_ep_thousand_idr'] * 1000
+    d['rolling_avg_7d'] = d['sales_idr'].rolling(7, min_periods=1).mean()
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=d['date'], y=d['sales_ep_thousand_idr'],
+    fig.add_trace(go.Scatter(x=d['date'], y=d['sales_idr'],
                              mode='lines+markers', name='Harian', line=dict(color='#00d1b2')))
     fig.add_trace(go.Scatter(x=d['date'], y=d['rolling_avg_7d'],
                              mode='lines', name='Rata-rata 7 hari', line=dict(color='#ffdd57', dash='dash')))
-    fig.update_layout(title=f'Tren Penjualan EP - {days} Hari Terakhir (+ Rolling Avg 7 Hari)', **_DARK_LAYOUT)
+    fig.update_layout(title=f'Tren Penjualan EP - {days} Hari Terakhir (+ Rolling Avg 7 Hari)',
+                      yaxis_title='Sales (IDR)', **_DARK_LAYOUT)
     return _fig_to_html(fig)
 
 def _chart_online_vs_offline(df, days=90, **_):
@@ -294,8 +296,9 @@ def ask_hive_agent(question: str, api_key: str, model_name: str, history: list =
     is_forecast_context = any(w in q_lower for w in ['prediksi', 'forecast', 'ramalan']) or inferred_context == "forecast"
 
     trend_days = extracted_days if (extracted_days and is_trend_context) else 30
-    df_trend = df.tail(trend_days)
-    tren_ep_x_hari = df_trend[['date', 'sales_ep_thousand_idr']].to_string(index=False)
+    df_trend = df.tail(trend_days).copy()
+    df_trend['sales_ep_idr'] = df_trend['sales_ep_thousand_idr'] * 1000
+    tren_ep_x_hari = df_trend[['date', 'sales_ep_idr']].to_string(index=False)
 
     forecast_days = extracted_days if (extracted_days and is_forecast_context) else 7
 
@@ -320,7 +323,7 @@ def ask_hive_agent(question: str, api_key: str, model_name: str, history: list =
     - Total Enterpriser baru 7 hari terakhir ({stats['week_start_date']} hingga {stats['week_end_date']}): {stats['new_enterprisers_this_week']}
     - Hari paling banyak registrasi Enterpriser: {stats['busiest_day_of_week']} (0=Senin, 6=Minggu)
 
-    Tren EP penjualan {trend_days} hari terakhir (Gunakan data ini untuk analisis, JANGAN tampilkan tabelnya):
+    Tren EP penjualan {trend_days} hari terakhir dalam IDR (Gunakan data ini untuk analisis, JANGAN tampilkan tabelnya. Nilai sudah dalam IDR penuh, bukan ribuan):
     {tren_ep_x_hari}
 
     Forecast jumlah Enterpriser baru untuk {forecast_days} hari ke depan (Gunakan data array ini untuk dianalisa dan dibuat ringkasan, JANGAN tampilkan array nya secara raw):
