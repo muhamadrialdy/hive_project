@@ -3,7 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid';
 
 export default withMermaid(defineConfig({
   title: 'HIVE',
-  description: 'HDI Intelligence & Value Engine — documentation',
+  description: 'HDI Intelligence & Value Engine (MVP) — documentation',
   // cleanUrls is intentionally disabled: when embedded in the React frontend at /docs/,
   // Vite's SPA fallback would otherwise intercept extension-less paths.
   cleanUrls: false,

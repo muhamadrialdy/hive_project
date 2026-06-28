@@ -23,6 +23,10 @@ node_modules/
 .npm/
 *.local
 
+# ── Data (user-provided) ──────────────────────────────────────────────────────
+data/*.csv
+notebooks/data/*.csv
+
 # ── Databases ──────────────────────────────────────────────────────────────────
 *.db
 *.sqlite

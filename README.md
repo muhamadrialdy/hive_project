@@ -1,14 +1,14 @@
-# HIVE — HDI Intelligence & Value Engine
+# HIVE — HDI Intelligence & Value Engine (MVP)
 
 HIVE is a natural-language analytics platform for HDI business leaders. It ingests daily operational data, surfaces it through a dashboard, forecasts new Enterpriser registrations seven days ahead, and exposes a Gemini-powered chat agent that answers business questions in Bahasa Indonesia.
 
-The repository contains a FastAPI backend, a React + Vite frontend, and an in-browser Jupyter-style notebook for ad-hoc analysis against the same dataset.
+This is the **MVP release** -- a functional proof-of-concept covering data ingestion, forecasting, MLOps, and conversational analytics. The repository contains a FastAPI backend, a React + Vite frontend, and an in-browser Jupyter-style notebook for ad-hoc analysis against the same dataset.
 
 ---
 
 ## Capabilities
 
-- **Data ingestion & EDA** — load, clean, and explore `hdi_daily_ops.csv` (1,631+ daily records).
+- **Data ingestion & EDA** — load, clean, and explore daily operational CSV data.
 - **7-day forecast** — Random Forest with 10 features (autoregressive lags, rolling momentum, calendar encoding) generated iteratively.
 - **MLOps surface** — train new model versions, list artifacts, monitor MAE / RMSE / MAPE drift on a 30-day holdout.
 - **Conversational agent** — Gemini-backed chat that produces summaries plus inline Plotly charts for trend and forecast questions.
@@ -41,7 +41,7 @@ hive_project/
 │   ├── src/components/widgets/   DataWidget, MLWidget, ChatWidget, NotebookWidget, AdminWidget
 │   └── vite.config.ts
 ├── notebooks/                    User notebooks (exploration.ipynb auto-opens in the app)
-├── data/hdi_daily_ops.csv        Legacy dataset (fallback if notebooks/data/ is empty)
+├── data/                         Place your hdi_daily_ops.csv here (fallback if notebooks/data/ is empty)
 ├── docs/                         VitePress documentation site
 ├── scripts/                      Dev hooks (post-edit test runner)
 └── pyproject.toml                uv-managed Python dependencies
@@ -52,6 +52,15 @@ Architecture diagrams and component-level detail live in [ARCHITECTURE.md](ARCHI
 ---
 
 ## Getting started
+
+### Dataset setup
+
+The CSV dataset is **not included** in the repository. Place your `hdi_daily_ops.csv` file in one of these locations before starting the app:
+
+- `notebooks/data/hdi_daily_ops.csv` (primary, used by the notebook and data pipeline)
+- `data/hdi_daily_ops.csv` (fallback)
+
+The CSV must contain these columns: `date`, `is_promo_period`, `day_of_week`, `new_enterpriser_count`, `new_bee_count`, `transaction_volume_online`, `transaction_volume_offline`, `sales_ep_thousand_idr`, `top_product_id`.
 
 ### Option A — Docker (recommended)
 

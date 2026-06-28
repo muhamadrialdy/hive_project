@@ -8,6 +8,15 @@ HIVE is a three-tier system: a FastAPI backend, a React + Vite frontend, and an 
 - **Node.js 20+**
 - (Optional) a **Gemini API key** if you want the chat agent to answer questions
 
+## Dataset setup
+
+The CSV dataset is **not included** in the repository. Place your `hdi_daily_ops.csv` file in one of these locations before starting the app:
+
+- `notebooks/data/hdi_daily_ops.csv` (primary, used by the notebook and data pipeline)
+- `data/hdi_daily_ops.csv` (fallback)
+
+Required columns: `date`, `is_promo_period`, `day_of_week`, `new_enterpriser_count`, `new_bee_count`, `transaction_volume_online`, `transaction_volume_offline`, `sales_ep_thousand_idr`, `top_product_id`.
+
 ## Backend
 
 ```bash

@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: HIVE
-  text: HDI Intelligence & Value Engine
+  text: HDI Intelligence & Value Engine (MVP)
   tagline: Natural-language analytics for HDI business leaders — dashboards, forecasts, and a Gemini-powered chat agent over daily operational data.
   actions:
     - theme: brand
@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: Data ingestion and EDA
-    details: Load, clean, and explore 1,631+ daily records from hdi_daily_ops.csv with a fully wired pandas pipeline.
+    details: Load, clean, and explore daily operational CSV data with a fully wired pandas pipeline. Users provide their own dataset.
   - title: 7-day forecast
     details: Random Forest with 10 features — autoregressive lags, rolling momentum, and calendar encoding — produced iteratively.
   - title: MLOps surface
